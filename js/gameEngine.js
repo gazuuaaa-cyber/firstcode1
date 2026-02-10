@@ -175,8 +175,15 @@ class GameEngine {
       // 혹시라도 루프 끝까지 선택 안되면 마지막 타입(보통 폭탄) 방지 위해 기본값(사과) 설정
       if (!selectedType) selectedType = this.itemTypes[0];
 
+      // 속도 계산 (레벨별 보정)
+      // Level 1 (0~20초): 기본 - 50
+      // Level 2 (20~40초): 기본
+      // Level 3 (40~60초): 기본 + 50
+      let speedModifier = 0;
+      if (this.level === 1) speedModifier = -50;
+      else if (this.level === 3) speedModifier = 50;
 
-      finalSpeed = selectedType.speed * speedMultiplier;
+      finalSpeed = selectedType.speed + speedModifier;
 
       // 3. Validation: Check Landing Time Conflict
       const newLandingTime = this.height / finalSpeed;
