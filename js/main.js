@@ -1,8 +1,6 @@
 /**
  * main.js
  * 포즈 인식과 게임 로직을 초기화하고 서로 연결하는 진입점
- *
- * PoseEngine, GameEngine, Stabilizer를 조합하여 애플리케이션을 구동
  */
 
 // 전역 변수
@@ -11,148 +9,147 @@ let gameEngine;
 let stabilizer;
 let ctx;
 let labelContainer;
+let animationFrameId;
 
 /**
  * 애플리케이션 초기화
  */
 async function init() {
   const startBtn = document.getElementById("startBtn");
-  const stopBtn = document.getElementById("stopBtn");
 
-  startBtn.disabled = true;
+  // UI 초기화
+  document.getElementById("start-overlay").classList.add("hidden");
+  document.getElementById("game-overlay").classList.add("hidden");
 
   try {
-    // 1. PoseEngine 초기화
-    poseEngine = new PoseEngine("./my_model/");
-    const { maxPredictions, webcam } = await poseEngine.init({
-      size: 200,
-      flip: true
-    });
-
-    // 2. Stabilizer 초기화
-    stabilizer = new PredictionStabilizer({
-      threshold: 0.7,
-      smoothingFrames: 3
-    });
-
-    // 3. GameEngine 초기화 (선택적)
-    gameEngine = new GameEngine();
-
-    // 4. 캔버스 설정
+    // 1. 캔버스 설정
     const canvas = document.getElementById("canvas");
-    canvas.width = 200;
-    canvas.height = 200;
+    canvas.width = 400; // 게임 화면 크기에 맞춤
+    canvas.height = 400;
     ctx = canvas.getContext("2d");
 
-    // 5. Label Container 설정
-    labelContainer = document.getElementById("label-container");
-    labelContainer.innerHTML = ""; // 초기화
-    for (let i = 0; i < maxPredictions; i++) {
-      labelContainer.appendChild(document.createElement("div"));
+    // 2. GameEngine 초기화
+    if (!gameEngine) {
+      gameEngine = new GameEngine();
+      gameEngine.init(canvas.width, canvas.height);
+
+      // 콜백 연결
+      gameEngine.onScoreUpdate = updateScoreBoard;
+      gameEngine.onGameOver = showGameOver;
     }
 
-    // 6. PoseEngine 콜백 설정
-    poseEngine.setPredictionCallback(handlePrediction);
-    poseEngine.setDrawCallback(drawPose);
+    // 3. PoseEngine 초기화 (최초 1회만)
+    if (!poseEngine) {
+      poseEngine = new PoseEngine("./my_model/");
+      const { maxPredictions, webcam } = await poseEngine.init({
+        size: 400, // 캔버스 크기와 일치시킴
+        flip: true
+      });
 
-    // 7. PoseEngine 시작
-    poseEngine.start();
+      // Label Container 설정
+      labelContainer = document.getElementById("label-container");
+      labelContainer.innerHTML = "";
+      for (let i = 0; i < maxPredictions; i++) {
+        labelContainer.appendChild(document.createElement("div"));
+      }
 
-    stopBtn.disabled = false;
+      poseEngine.setPredictionCallback(handlePrediction);
+      poseEngine.start();
+    }
+
+    // 4. Stabilizer 초기화
+    if (!stabilizer) {
+      stabilizer = new PredictionStabilizer({
+        threshold: 0.85, // 문턱값 높임
+        smoothingFrames: 5 // 부드러운 움직임
+      });
+    }
+
+    // 5. 게임 시작
+    gameEngine.start();
+
+    // 6. 애니메이션 루프 시작
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    loop();
+
   } catch (error) {
     console.error("초기화 중 오류 발생:", error);
-    alert("초기화에 실패했습니다. 콘솔을 확인하세요.");
-    startBtn.disabled = false;
+    alert("초기화에 실패했습니다. (모델 로딩 실패 등)");
+    document.getElementById("start-overlay").classList.remove("hidden");
   }
 }
 
 /**
- * 애플리케이션 중지
+ * 게임 재시작
  */
-function stop() {
-  const startBtn = document.getElementById("startBtn");
-  const stopBtn = document.getElementById("stopBtn");
+function restartGame() {
+  init();
+}
 
-  if (poseEngine) {
-    poseEngine.stop();
+/**
+ * 애니메이션 루프 (매 프레임 호출)
+ */
+function loop() {
+  // 1. PoseEngine 웹캠 그리기
+  if (poseEngine && poseEngine.webcam && poseEngine.webcam.canvas) {
+    // 웹캠 배경을 흐릿하게 그리거나 그냥 그리기
+    ctx.globalAlpha = 0.5; // 반투명
+    ctx.drawImage(poseEngine.webcam.canvas, 0, 0, 400, 400);
+    ctx.globalAlpha = 1.0;
+  } else {
+    ctx.clearRect(0, 0, 400, 400);
   }
 
+  // 2. 게임 업데이트 및 그리기
   if (gameEngine && gameEngine.isGameActive) {
-    gameEngine.stop();
+    gameEngine.update(performance.now());
+    gameEngine.draw(ctx);
   }
 
-  if (stabilizer) {
-    stabilizer.reset();
-  }
-
-  startBtn.disabled = false;
-  stopBtn.disabled = true;
+  animationFrameId = requestAnimationFrame(loop);
 }
 
 /**
  * 예측 결과 처리 콜백
- * @param {Array} predictions - TM 모델의 예측 결과
- * @param {Object} pose - PoseNet 포즈 데이터
  */
 function handlePrediction(predictions, pose) {
   // 1. Stabilizer로 예측 안정화
   const stabilized = stabilizer.stabilize(predictions);
 
-  // 2. Label Container 업데이트
-  for (let i = 0; i < predictions.length; i++) {
-    const classPrediction =
-      predictions[i].className + ": " + predictions[i].probability.toFixed(2);
-    labelContainer.childNodes[i].innerHTML = classPrediction;
-  }
-
-  // 3. 최고 확률 예측 표시
-  const maxPredictionDiv = document.getElementById("max-prediction");
-  maxPredictionDiv.innerHTML = stabilized.className || "감지 중...";
-
-  // 4. GameEngine에 포즈 전달 (게임 모드일 경우)
-  if (gameEngine && gameEngine.isGameActive && stabilized.className) {
-    gameEngine.onPoseDetected(stabilized.className);
-  }
-}
-
-/**
- * 포즈 그리기 콜백
- * @param {Object} pose - PoseNet 포즈 데이터
- */
-function drawPose(pose) {
-  if (poseEngine.webcam && poseEngine.webcam.canvas) {
-    ctx.drawImage(poseEngine.webcam.canvas, 0, 0);
-
-    // 키포인트와 스켈레톤 그리기
-    if (pose) {
-      const minPartConfidence = 0.5;
-      tmPose.drawKeypoints(pose.keypoints, minPartConfidence, ctx);
-      tmPose.drawSkeleton(pose.keypoints, minPartConfidence, ctx);
+  // 2. Label Container 업데이트 (디버깅용)
+  if (labelContainer) {
+    for (let i = 0; i < predictions.length; i++) {
+      const classPrediction =
+        predictions[i].className + ": " + predictions[i].probability.toFixed(2);
+      if (labelContainer.childNodes[i]) {
+        labelContainer.childNodes[i].innerHTML = classPrediction;
+      }
     }
   }
-}
 
-// 게임 모드 시작 함수 (선택적 - 향후 확장용)
-function startGameMode(config) {
-  if (!gameEngine) {
-    console.warn("GameEngine이 초기화되지 않았습니다.");
-    return;
+  // 3. GameEngine에 포즈 전달
+  if (gameEngine && gameEngine.isGameActive && stabilized.className) {
+    gameEngine.setPlayerPose(stabilized.className);
   }
-
-  gameEngine.setCommandChangeCallback((command) => {
-    console.log("새로운 명령:", command);
-    // UI 업데이트 로직 추가 가능
-  });
-
-  gameEngine.setScoreChangeCallback((score, level) => {
-    console.log(`점수: ${score}, 레벨: ${level}`);
-    // UI 업데이트 로직 추가 가능
-  });
-
-  gameEngine.setGameEndCallback((finalScore, finalLevel) => {
-    console.log(`게임 종료! 최종 점수: ${finalScore}, 최종 레벨: ${finalLevel}`);
-    alert(`게임 종료!\n최종 점수: ${finalScore}\n최종 레벨: ${finalLevel}`);
-  });
-
-  gameEngine.start(config);
 }
+
+// UI 업데이트 함수들
+function updateScoreBoard(data) {
+  document.getElementById("score").innerText = data.score;
+  document.getElementById("time").innerText = data.time;
+
+  let livesStr = "";
+  for (let i = 0; i < data.lives; i++) livesStr += "❤";
+  document.getElementById("lives").innerText = livesStr;
+}
+
+function showGameOver(finalScore, reason) {
+  document.getElementById("overlay-title").innerText = reason || "Game Over";
+  document.getElementById("overlay-message").innerText = `Final Score: ${finalScore}`;
+  document.getElementById("game-overlay").classList.remove("hidden");
+}
+
+// 전역 함수 노출 (HTML onclick용)
+window.init = init;
+window.restartGame = restartGame;
+window.handlePrediction = handlePrediction; // 필요 시
