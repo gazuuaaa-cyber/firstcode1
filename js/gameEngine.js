@@ -30,12 +30,12 @@ class GameEngine {
       "Right": 330
     };
 
-    // 아이템 타입 정의 (확률 및 속도 조정: 사과 빠름, 오렌지 약간 느림, 폭탄 빠름)
+    // 아이템 타입 정의 (속도 사용자 지정: 사과(250) < 폭탄(270) < 포도(300) < 오렌지(350))
     this.itemTypes = [
       { type: "apple", score: 100, speed: 250, color: "red", prob: 0.28, radius: 20 },
-      { type: "grape", score: 200, speed: 200, color: "purple", prob: 0.28, radius: 20 },
-      { type: "orange", score: 300, speed: 255, color: "orange", prob: 0.27, radius: 15 },
-      { type: "bomb", score: 0, speed: 250, color: "black", prob: 0.17, radius: 25 }
+      { type: "grape", score: 200, speed: 300, color: "purple", prob: 0.28, radius: 20 },
+      { type: "orange", score: 300, speed: 350, color: "orange", prob: 0.27, radius: 15 },
+      { type: "bomb", score: 0, speed: 270, color: "black", prob: 0.17, radius: 25 }
     ];
 
     // 콜백 함수
