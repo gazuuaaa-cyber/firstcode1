@@ -138,9 +138,15 @@ function updateScoreBoard(data) {
   document.getElementById("score").innerText = data.score;
   document.getElementById("time").innerText = data.time;
 
-  let livesStr = "";
-  for (let i = 0; i < data.lives; i++) livesStr += "❤";
-  document.getElementById("lives").innerText = livesStr;
+  // 놓친 개수 / 허용 개수 표시 (예: 0 / 2)
+  const missedElem = document.getElementById("missed");
+  missedElem.innerText = `${data.missed} / ${data.maxMisses}`;
+
+  if (data.missed >= 1) {
+    missedElem.style.color = "red";
+  } else {
+    missedElem.style.color = "#2c3e50";
+  }
 }
 
 function showGameOver(finalScore, reason) {

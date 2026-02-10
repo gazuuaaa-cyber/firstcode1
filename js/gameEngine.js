@@ -154,7 +154,7 @@ class GameEngine {
       // 1. Random Lane
       selectedLane = lanes[Math.floor(Math.random() * lanes.length)];
 
-      // 2. Random Type
+      // 2. Random Type (Corrected Logic)
       const rand = Math.random();
       let cumulativeProb = 0;
       let bombProbMod = (this.level - 1) * 0.05;
@@ -164,32 +164,29 @@ class GameEngine {
         if (type.type === "bomb") prob += bombProbMod;
 
         cumulativeProb += prob;
+        // 단순 if (rand <= cumulativeProb) 만으로는 부족할 수 있으므로, 루프 종료 조건 명확히
         if (rand <= cumulativeProb) {
           selectedType = type;
           break;
         }
       }
+      // 혹시라도 루프 끝까지 선택 안되면 마지막 타입(보통 폭탄) 방지 위해 기본값(사과) 설정
+      if (!selectedType) selectedType = this.itemTypes[0];
+
 
       finalSpeed = selectedType.speed * speedMultiplier;
 
       // 3. Validation: Check Landing Time Conflict
-      // 예상 낙하 시간 = height / speed
-      // 기존 아이템들의 예상 낙하 시간과 비교하여 너무 가까우면 스킵
-
-      const newLandingTime = this.height / finalSpeed; // 현재 시점 기준 남은 시간
+      const newLandingTime = this.height / finalSpeed;
       let conflict = false;
 
       for (let item of this.items) {
-        // 기존 아이템의 남은 낙하 시간
         const remainingDist = this.height - item.y;
         if (remainingDist <= 0) continue;
 
         const existingLandingTime = remainingDist / item.speed;
-
-        // 두 아이템이 바닥에 닿는 시간 차이
         const timeDiff = Math.abs(newLandingTime - existingLandingTime);
 
-        // 0.6초 이내에 동시 도착하면 안됨 (사람이 반응할 시간 필요)
         if (timeDiff < 0.6) {
           conflict = true;
           break;
@@ -242,9 +239,9 @@ class GameEngine {
     if (this.onScoreUpdate) {
       this.onScoreUpdate({
         score: this.score,
-        lives: this.lives,
         time: Math.ceil(this.timeLeft),
-        missed: this.missedFruits
+        missed: this.missedFruits,
+        maxMisses: 2 // 최대 허용 개수
       });
     }
   }
