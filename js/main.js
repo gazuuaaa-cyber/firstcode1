@@ -31,7 +31,9 @@ async function init() {
     // 2. GameEngine 초기화
     if (!gameEngine) {
       gameEngine = new GameEngine();
-      gameEngine.init(canvas.width, canvas.height);
+      // SoundManager 초기화 및 주입
+      const soundManager = new SoundManager();
+      gameEngine.init(canvas.width, canvas.height, soundManager);
 
       // 콜백 연결
       gameEngine.onScoreUpdate = updateScoreBoard;
