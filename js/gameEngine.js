@@ -30,12 +30,12 @@ class GameEngine {
       "Right": 330
     };
 
-    // 아이템 타입 정의
+    // 아이템 타입 정의 (확률 조정: 사과 비중 줄임)
     this.itemTypes = [
-      { type: "apple", score: 100, speed: 150, color: "red", prob: 0.5, radius: 20 },
+      { type: "apple", score: 100, speed: 150, color: "red", prob: 0.3, radius: 20 },
       { type: "grape", score: 200, speed: 200, color: "purple", prob: 0.3, radius: 20 },
-      { type: "orange", score: 300, speed: 300, color: "orange", prob: 0.1, radius: 15 }, // 작고 빠름
-      { type: "bomb", score: 0, speed: 180, color: "black", prob: 0.1, radius: 25 }
+      { type: "orange", score: 300, speed: 300, color: "orange", prob: 0.2, radius: 15 },
+      { type: "bomb", score: 0, speed: 180, color: "black", prob: 0.2, radius: 25 }
     ];
 
     // 콜백 함수
@@ -262,22 +262,26 @@ class GameEngine {
     ctx.textAlign = "center";
     ctx.fillText("Bowl", playerX, playerY - 5);
 
-    // 2. 아이템 그리기
+    // 2. 아이템 그리기 (원 대신 큰 이모지만 그림)
     this.items.forEach(item => {
-      ctx.fillStyle = item.color;
-      ctx.beginPath();
-      ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
-      ctx.fill();
-
       // 텍스트 (이모지)
-      ctx.font = "20px Arial";
+      ctx.font = "40px Arial"; // 크기 키움
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
       let icon = "";
       if (item.type === "apple") icon = "🍎";
       else if (item.type === "grape") icon = "🍇";
       else if (item.type === "orange") icon = "🍊";
       else if (item.type === "bomb") icon = "💣";
 
-      ctx.fillText(icon, item.x, item.y + 7);
+      ctx.fillText(icon, item.x, item.y);
+
+      // 디버깅용 충돌 박스 (필요시 주석 해제)
+      // ctx.strokeStyle = "red";
+      // ctx.beginPath();
+      // ctx.arc(item.x, item.y, item.radius, 0, Math.PI*2);
+      // ctx.stroke();
     });
   }
 }
